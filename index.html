@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Générateur d'images DALL-E</title>
+        <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 20px;
+            }
+
+            #promptInput {
+                width: 300px;
+                padding: 10px;
+                font-size: 16px;
+                margin-bottom: 20px;
+            }
+
+            #generateButton {
+                padding: 10px 20px;
+                font-size: 16px;
+                cursor: pointer;
+            }
+
+            #imageContainer {
+                width: 100%;
+                height: 600px;
+                border: 2px dashed #ccc;
+                margin-top: 20px;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .draggable-image {
+                position: absolute;
+                cursor: move;
+                max-width: 200px;
+                max-height: 200px;
+                border: 1px solid #000;
+                touch-action: none;
+                user-select: none;
+            }
+
+            #errorMessage {
+                color: red;
+                margin-top: 10px;
+            }
+        </style>
+    </head>
+
+    <body>
+        <h1>Générateur d'images DALL-E</h1>
+        <input type="text" id="promptInput" placeholder="Décrivez l'image que vous voulez générer">
+        <button id="generateButton">Générer l'image</button>
+        <div id="imageContainer">
+            <!-- Les images générées seront ajoutées ici -->
+        </div>
+        <div id="errorMessage"></div>
+
+        <script>
+            const promptInput = document.getElementById('promptInput');
+            const generateButton = document.getElementById('generateButton');
+            const imageContainer = document.getElementById('imageContainer');
+            const errorMessage = document.getElementById('errorMessage');
+
+            generateButton.addEventListener('click', generateImage);
+
+            async function generateImage() {
+                const prompt = promptInput.value.trim();
+                if (prompt === '') {
+                    errorMessage.textContent = 'Veuillez entrer une description pour l\'image.';
+                    return;
+                }
+
+                errorMessage.textContent = '';
+
+                try {
+                    const response = await fetch('/generate-image', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ prompt }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Erreur lors de la génération de l\'image');
+                    }
+
+                    const data = await response.json();
+                    addDraggableImage(data.imageUrl, prompt);
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    errorMessage.textContent = 'Une erreur s\'est produite lors de la génération de l\'image.';
+                }
+            }
+
+            function addDraggableImage(imageUrl, alt) {
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                img.alt = alt;
+                img.className = 'draggable-image';
+                img.style.left = Math.random() * (imageContainer.offsetWidth - 200) + 'px';
+                img.style.top = Math.random() * (imageContainer.offsetHeight - 200) + 'px';
+
+                imageContainer.appendChild(img);
+
+                initDraggable(img);
+            }
+
+            function initDraggable(element) {
+                interact(element)
+                    .draggable({
+                        inertia: true,
+                        modifiers: [
+                            interact.modifiers.restrictRect({
+                                restriction: 'parent',
+                                endOnly: true
+                            })
+                        ],
+                        autoScroll: true,
+                        listeners: {
+                            move: dragMoveListener,
+                        }
+                    });
+            }
+
+            function dragMoveListener(event) {
+                var target = event.target;
+                var x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                var y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+
+                target.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+
+                target.setAttribute('data-x', x);
+                target.setAttribute('data-y', y);
+            }
+
+            // Initialiser les éléments existants (si nécessaire)
+            document.querySelectorAll('.draggable-image').forEach(initDraggable);
+        </script>
+    </body>
+
+</html>
